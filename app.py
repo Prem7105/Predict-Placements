@@ -27,19 +27,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load the trained model and scaler
+# Load the trained model (modified to work without separate scaler)
 try:
     model = pickle.load(open('model.pkl', 'rb'))
-    scaler = pickle.load(open('scaler.pkl', 'rb'))
-    logger.info("Model and scaler loaded successfully")
+    logger.info("Model loaded successfully")
+    
+    # Try to load scaler if it exists, otherwise we'll scale manually
+    try:
+        scaler = pickle.load(open('scaler.pkl', 'rb'))
+        logger.info("Scaler loaded successfully")
+        has_scaler = True
+    except FileNotFoundError:
+        logger.info("No scaler.pkl found - will use manual scaling")
+        scaler = None
+        has_scaler = False
+        
 except FileNotFoundError as e:
-    logger.error(f"Model files not found: {e}")
+    logger.error(f"Model file not found: {e}")
     model = None
     scaler = None
+    has_scaler = False
 except Exception as e:
     logger.error(f"Error loading model: {e}")
     model = None
     scaler = None
+    has_scaler = False
 
 # Request/Response models
 class PredictionRequest(BaseModel):
@@ -56,12 +68,24 @@ class PredictionResponse(BaseModel):
 class BatchPredictionRequest(BaseModel):
     students: List[PredictionRequest]
 
+def manual_scale(cgpa, iq):
+    """Manual scaling if scaler.pkl is not available"""
+    # These are approximate scaling values for CGPA and IQ
+    # CGPA: typically 6-10 range, mean~8, std~1
+    # IQ: typically 80-140 range, mean~110, std~15
+    
+    cgpa_scaled = (cgpa - 8.0) / 1.0  # Approximate standardization
+    iq_scaled = (iq - 110.0) / 15.0   # Approximate standardization
+    
+    return np.array([[cgpa_scaled, iq_scaled]])
+
 @app.get("/")
 async def root():
     return {
         "message": "🎓 Placement Prediction ML API is running!",
         "status": "healthy",
         "model_loaded": model is not None,
+        "scaler_available": has_scaler,
         "endpoints": ["/predict", "/predict_batch", "/health", "/docs"]
     }
 
@@ -70,7 +94,8 @@ async def health_check():
     return {
         "status": "healthy" if model is not None else "unhealthy",
         "model_loaded": model is not None,
-        "scaler_loaded": scaler is not None
+        "scaler_loaded": has_scaler,
+        "scaling_method": "scaler.pkl" if has_scaler else "manual_scaling"
     }
 
 @app.post("/predict", response_model=PredictionResponse)
@@ -84,7 +109,7 @@ async def predict_placement(request: PredictionRequest):
     Returns placement prediction (0 = Not Placed, 1 = Placed) with probability
     """
     
-    if model is None or scaler is None:
+    if model is None:
         raise HTTPException(status_code=503, detail="Model not available")
     
     # Validate input ranges
@@ -95,14 +120,14 @@ async def predict_placement(request: PredictionRequest):
         raise HTTPException(status_code=400, detail="IQ must be between 50 and 200")
     
     try:
-        # Prepare input data
-        X = np.array([[request.cgpa, request.iq]])
-        
-        # Scale the input (assuming you saved the scaler)
-        if scaler:
+        # Prepare and scale input data
+        if has_scaler and scaler is not None:
+            # Use the saved scaler
+            X = np.array([[request.cgpa, request.iq]])
             X_scaled = scaler.transform(X)
         else:
-            X_scaled = X
+            # Use manual scaling
+            X_scaled = manual_scale(request.cgpa, request.iq)
         
         # Make prediction
         prediction = model.predict(X_scaled)[0]
@@ -126,7 +151,7 @@ async def predict_placement(request: PredictionRequest):
         
     except Exception as e:
         logger.error(f"Prediction error: {e}")
-        raise HTTPException(status_code=500, detail="Prediction failed")
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
 
 @app.post("/predict_batch")
 async def predict_batch(request: BatchPredictionRequest):
@@ -134,7 +159,7 @@ async def predict_batch(request: BatchPredictionRequest):
     Predict placement for multiple students at once
     """
     
-    if model is None or scaler is None:
+    if model is None:
         raise HTTPException(status_code=503, detail="Model not available")
     
     if len(request.students) > 100:
@@ -144,14 +169,16 @@ async def predict_batch(request: BatchPredictionRequest):
         results = []
         
         for student in request.students:
-            # Prepare input
-            X = np.array([[student.cgpa, student.iq]])
+            # Validate ranges
+            if not (0.0 <= student.cgpa <= 10.0) or not (50 <= student.iq <= 200):
+                continue  # Skip invalid entries
             
-            # Scale if scaler available
-            if scaler:
+            # Scale input
+            if has_scaler and scaler is not None:
+                X = np.array([[student.cgpa, student.iq]])
                 X_scaled = scaler.transform(X)
             else:
-                X_scaled = X
+                X_scaled = manual_scale(student.cgpa, student.iq)
             
             # Predict
             prediction = model.predict(X_scaled)[0]
@@ -191,7 +218,8 @@ async def get_model_info():
         "features": ["cgpa", "iq"],
         "output": "placement (0=Not Placed, 1=Placed)",
         "model_loaded": True,
-        "scaler_loaded": scaler is not None
+        "scaler_method": "scaler.pkl" if has_scaler else "manual_scaling",
+        "scaling_note": "Using manual scaling - upload scaler.pkl for better accuracy" if not has_scaler else "Using saved scaler"
     }
 
 # Error handlers
