@@ -65,7 +65,7 @@ st.markdown(
 # ---------------------------
 # App Title
 # ---------------------------
-st.title("🎓 Placement Predictor (Hinglish)")
+st.title("🎓 Placement Predictor")
 st.caption("Enter your **CGPA and IQ** to know your placement chances!")
 
 # ---------------------------
