@@ -14,11 +14,10 @@ except FileNotFoundError:
 
 # App Title
 st.title('🎓 Student Placement Predictor')
-st.write("Enter a student's **CGPA** and **IQ** to predict their placement status.")
+st.write("Enter a student's **CGPA** to predict their placement status.")
 
 # Input fields
 cgpa = st.number_input('Enter CGPA', min_value=0.0, max_value=10.0, step=0.1, value=8.0)
-iq = st.number_input('Enter IQ', min_value=50, max_value=200, step=1, value=100)
 
 # Prediction button
 if st.button('🔮 Predict Placement'):
