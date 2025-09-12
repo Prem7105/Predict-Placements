@@ -22,7 +22,7 @@ cgpa = st.number_input('Enter CGPA', min_value=0.0, max_value=10.0, step=0.1, va
 # Prediction button
 if st.button('🔮 Predict Placement'):
     # Convert input to numpy array
-    query_point = np.array([cgpa, iq]).reshape(1, -1)
+    query_point = np.array([cgpa]).reshape(1, -1)
 
     # Scale the input
     query_point_scaled = scaler.transform(query_point)
