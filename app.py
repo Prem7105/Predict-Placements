@@ -23,22 +23,22 @@ st.set_page_config(
     layout="centered",
 )
 
-# Custom CSS for Black & White theme + Fonts
+# Custom CSS for Dark Theme
 st.markdown(
     """
     <style>
     body {
-        background-color: #ffffff;
-        color: #000000;
+        background-color: #000000;
+        color: #ffffff;
         font-family: "Helvetica Neue", sans-serif;
     }
     .stApp {
-        background-color: #f9f9f9;
+        background-color: #000000;
+        color: #ffffff;
         padding: 2rem;
     }
-    h1, h2, h3 {
-        font-weight: 600;
-        color: #111111;
+    h1, h2, h3, label, .css-16huue1, .css-1d391kg {
+        color: #ffffff !important;
     }
     .result {
         font-size: 1.3rem;
@@ -48,13 +48,14 @@ st.markdown(
         border-radius: 10px;
     }
     .success {
-        background-color: #000;
-        color: #fff;
+        background-color: #111111;
+        color: #00ff88;
+        border: 1px solid #00ff88;
     }
     .error {
-        background-color: #fff;
-        color: #000;
-        border: 2px solid #000;
+        background-color: #111111;
+        color: #ff4d4d;
+        border: 1px solid #ff4d4d;
     }
     </style>
     """,
@@ -68,7 +69,7 @@ st.title("🎓 Placement Predictor (Hinglish)")
 st.caption("Enter your **CGPA and IQ** to know your placement chances!")
 
 # ---------------------------
-# Inputs (in English)
+# Inputs
 # ---------------------------
 cgpa = st.number_input(
     '📊 Enter your CGPA',
